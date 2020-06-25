@@ -1,0 +1,38 @@
+service:
+  name: notification-service
+
+plugins:
+  - serverless-bundle
+  - serverless-pseudo-parameters
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  memorySize: 256
+  region: eu-west-1
+  stage: ${opt:stage, 'dev'}
+  iamRoleStatements:
+    - ${file(iam/SendMailIAM.yml):SendMailIAM}
+
+resources:
+  Resources:
+    MailQueue: ${file(resources/MailQueue.yml):MailQueue}
+  Outputs:
+    MailQueueArn: ${file(resources/MailQueue.yml):Outputs.MailQueueArn}
+    MailQueueUrl: ${file(resources/MailQueue.yml):Outputs.MailQueueUrl}
+  
+functions:
+  sendMail:
+    handler: src/handlers/sendMail.handler
+    events:
+      - sqs:
+          arn: ${self:custom.mailQueue.arn}
+          batchSize: 1
+
+custom:
+  mailQueue:
+    name: MailQueue-${self:provider.stage}
+    arn: !GetAtt MailQueue.Arn
+    url: !Ref MailQueue
+  bundle:
+    linting: false
